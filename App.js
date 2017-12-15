@@ -1,16 +1,11 @@
 import React from 'react';
+import {Alert, Button, FlatList, StatusBar, StyleSheet, Text, TextInput, View,} from 'react-native';
+
+import {Task} from "./tasks/model";
 import {
-    Alert, Button, Dimensions, FlatList, ScrollView, StatusBar, StyleSheet, Text, TextInput,
-    TouchableNativeFeedback, View,
-} from 'react-native';
-
-let id = 10;
-
-const [
-    STATE_TODO,
-    STATE_DONE,
-    STATE_DELETED,
-] = [1, 2, 3];
+    getButtonColor, getButtonsActive, getButtonTitle, makeTextStyle, markArchived, markDeleted, markDone,
+    orderTasks
+} from "./tasks/bl";
 
 export default class App extends React.Component {
 
@@ -18,29 +13,19 @@ export default class App extends React.Component {
         super();
         this.state = {
             enteringName: '',
-            books: [
-                {
-                    id: 1,
-                    name: 'Таємничий Острів М.Твена',
-                    status: STATE_DONE,
-                },
-                {
-                    id: 2,
-                    name: 'Хроніки Нарнії',
-                    status: STATE_DELETED,
-                },
-                {
-                    id: 3,
-                    name: 'Волшебник Средиземномория У. ле Гуин',
-                    status: STATE_TODO,
-                },
-                {
-                    id: 4,
-                    name: 'Архитектура ПК Танненбаума',
-                    status: STATE_TODO,
-                },
+            tasks: [
+                new Task(`Евгений Онегин
+                виликий русский писака`),
+                new Task('ений Онегин'),
+                new Task('ний Онегин'),
+                new Task('й Онегин'),
+                new Task('ний Онегин'),
+                new Task('ений Онегин'),
+                new Task('Евгений Онегин'),
+                new Task('Евгений Онегин'),
             ],
-        }
+            expandId: null,
+        };
     }
 
 
@@ -55,7 +40,7 @@ export default class App extends React.Component {
                     alignItems: 'flex-start',
                     justifyContent: 'flex-start',
                 }}>
-                    <TextInput 
+                    <TextInput
                         placeholder='Enter book you wanna read'
                         style={{
                             flex: 1,
@@ -64,19 +49,16 @@ export default class App extends React.Component {
                             fontSize: 17,
                         }}
                         value={this.state.enteringName}
-                        onChangeText={(text) => this.setState({ enteringName: text })}
+                        onChangeText={(text) => this.setState({enteringName: text})}
                     />
                     <Button
                         title={"Add"}
                         onPress={() => {
-                            if (this.state.books.filter((x) => x === this.state.enteringName).length === 0 ) {
-                                this.state.books.push({
-                                    id: ++id,
-                                    name: this.state.enteringName,
-                                });
-                                this.setState({ books: this.state.books, enteringName: ''});
+                            if (this.state.enteringName.length !== 0) {
+                                this.state.tasks.push(new Task(this.state.enteringName));
+                                this.setState({tasks: this.state.tasks, enteringName: ''});
                             } else {
-                                Alert.alert(`You have already added "${this.state.enteringName}"`)
+                                Alert.alert(`Write something down!`);
                             }
                         }}
                         style={{
@@ -85,47 +67,78 @@ export default class App extends React.Component {
                     />
                 </View>
                 <View style={{
-                    flex: 1,
+                    width: "100%",
                 }}>
                     <FlatList
-                        data={this.state.books.map(
-                            ({ id, name, state }) => ({ key: id, id, name, state })
-                        )}
-                        renderItem={({item}) => (
-                            <View style={styles.item}>
-                                <Text
-                                    style={{
-                                        fontSize: 16,
-                                        paddingRight: 32,
-                                        width: "100%",
-                                    }}
-                                    onPress={() => {
-                                        if (this.state.expandId !== item.id) {
-                                            this.setState({ expandId: item.id });
-                                        } else {
-                                            this.setState({ expandId: null });
-                                        }
-                                    }}
-                                >{item.name}</Text>
-                                {item.id === this.state.expandId ?
-                                    <View style={{ marginTop: 32, width: "100%", flexDirection: "column", justifyContent: "space-around"}}>
-                                        <Button
-                                            color="#ff3140"
-                                            onPress={() =>
-                                                this.setState({books: this.state.books.filter(({id}) => id !== item.id)})}
-                                            title="Remove"
-                                        />
+                        data={orderTasks(this.state.tasks).map((x) => x)}
 
-                                    </View>
-                                :null}
-                            </View>
-                        )}
+                        renderItem={({item: task}) =>
+                            <TaskView
+                                task={task}
+                                expanded={task.id === this.state.expandId}
+                                handlers={{
+                                    delete: () => {
+                                        this.setState({
+                                            tasks: markDeleted(this.state.tasks, [task.id]),
+                                            expandId: null,
+                                        });
+                                    },
+                                    archive: () => {
+                                        this.setState({
+                                            tasks: markArchived(this.state.tasks, [task.id]),
+                                            expandId: null,
+                                        });
+                                    },
+                                    mark_done: () => {
+                                        this.setState({
+                                            tasks: markDone(this.state.tasks, [task.id]),
+                                            expandId: null,
+                                        });
+                                    }
+                                }}
+
+                                onExpand={() => {
+                                    if (this.state.expandId !== task.id) {
+                                        this.setState({expandId: task.id});
+                                    } else {
+                                        this.setState({expandId: null});
+                                    }
+                                }}
+                            />}
                     />
                 </View>
             </View>
         );
     }
 }
+
+const TaskView = ({task, handlers, onExpand, expanded}) => (
+    <View style={styles.item}>
+        <Text
+            style={makeTextStyle(task, {
+                fontSize: 16,
+            })}
+            onPress={onExpand}
+        >{task.name}</Text>
+        {expanded ?
+            <View style={{
+                marginTop: 32,
+                width: "100%",
+                flexDirection: "column",
+                justifyContent: "space-around"
+            }}>
+                {getButtonsActive(task).map((type) => (
+                    <Button
+                        key={type}
+                        color={getButtonColor(type)}
+                        onPress={handlers[type]}
+                        title={getButtonTitle(type)}
+                    />)
+                 )}
+            </View>
+            : null}
+    </View>
+);
 
 
 const styles = StyleSheet.create({

@@ -23,6 +23,6 @@
     "react": "16.0.0",
     "react-native": "0.50",
     "react-native-cli": "^2.0.1",
-    "rx": "^4.1.0",
+    "rx": "^4.1.0"
   }
 }
