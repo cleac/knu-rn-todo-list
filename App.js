@@ -70,7 +70,7 @@ export default class App extends React.Component {
                     width: "100%",
                 }}>
                     <FlatList
-                        data={orderTasks(this.state.tasks).map((x) => x)}
+                        data={orderTasks(this.state.tasks).filter(({status}) => status !== Task.STATUS.archived)}
 
                         renderItem={({item: task}) =>
                             <TaskView
